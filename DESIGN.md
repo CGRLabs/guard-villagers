@@ -264,6 +264,11 @@ Run A and run B differ because the villagers had walked differently between the 
 of the fold: whether the census sees one group or two within 32 blocks, the village gets the guards the
 rule asks for and no more.
 
+One honest limit on the pictures: `real-v06-guard.png` aims `look-at-entity` from where the player stands,
+and in a taiga village on a hill that leaves a ridge between the camera and the guard, so it shows a
+distant figure, not the armour. The close-up appearance proof is `village-v06-guard.png` from the flat
+arena, where the guards' skins, iron set, sword, crossbow and shield are all readable.
+
 ### The unit tests (2026-11-11)
 
 `python tools/horizon.py test` runs both crates the mod lives in, in the `fast` profile:
