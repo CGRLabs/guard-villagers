@@ -42,12 +42,14 @@ Native mods are unsandboxed code that runs with your rights, and this one is not
 registry — the launcher will say so in red before it builds. The bundle is fifteen small `.rs` files under
 `mixins/guard_villagers/`; read them first.
 
-**Without the launcher:** `horizon-client-guard.exe` ships with
-[release v0.6.0](https://github.com/CGRLabs/guard-villagers/releases/tag/v0.6.0): a Horizon client with
-Guard Villagers already compiled in. Drop it into a prepared Horizon 26.3 folder (one where
-`horizon-prepare` has run) and start it in place of `horizon-client`. It is built for commit `e14b35ce`
-(the 2026-11-11 Nightly), so it will not match an older install — for another Nightly, use the launcher
-build above.
+**Without the launcher:** [release v0.6.0](https://github.com/CGRLabs/guard-villagers/releases/tag/v0.6.0)
+carries `horizon-client-guard-0.6.0-windows-x64.zip` (37 033 717 bytes, SHA-256
+`4760d701ff17546ccbb4b3dc9cb74ebcf84125f6e06d97134b9b4772f349ea54`) — a Horizon client with Guard
+Villagers already compiled in, unzipping to `horizon-client-guard.exe` (103 202 816 bytes, SHA-256
+`cb36dc878b6c31da483b5a1785c11f0b9a3644b24ff0e429de2b67a3b00765f2`). Drop it into a prepared Horizon 26.3
+folder (one where `horizon-prepare` has run) and start it in place of `horizon-client`. It is built for
+commit `e14b35ce` (the 2026-11-11 Nightly), so it will not match an older install — for another Nightly,
+use the launcher build above.
 
 Either way, to see it fast: find a village (`/locate structure #minecraft:village`), make it night
 (`/time set night`) and stand back. Within about a minute the guards walk up beside the villagers. To
