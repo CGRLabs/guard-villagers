@@ -1,0 +1,13 @@
+[package]
+name = "horizon-guard-villagers"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+description = "Guard Villagers: villagers defend themselves and their village"
+
+[lib]
+# This exact source is also injected as a same-crate module by horizon-mixins.
+path = "mixins/guard_villagers/runtime.rs"
+
+[workspace]

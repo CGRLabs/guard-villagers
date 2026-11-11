@@ -1,0 +1,160 @@
+[mod]
+id = "guard_villagers"
+version = "0.6.0"
+priority = 100
+
+# The rendering adapters depend on this revision's model and animation layout.
+[compatibility]
+horizon_revision = "e14b35cecb688809822706e033710ad7209d1155"
+
+[[module]]
+id = "guard_villagers"
+file = "crates/horizon-client/src/client_lib.rs"
+name = "guard_villagers"
+source = "runtime.rs"
+visibility = "pub"
+
+# The server half lives in the game crate: it needs the Game.
+[[module]]
+id = "guard_villagers_server"
+file = "crates/horizon-client/src/game.rs"
+name = "guard_villagers_server"
+source = "server.rs"
+visibility = "pub"
+
+[[module]]
+id = "guard_skins"
+file = "crates/horizon-client-render/src/lib.rs"
+name = "guard_skins"
+source = "skins.rs"
+visibility = "pub"
+
+[[injection]]
+id = "guard-skin-atlas"
+kind = "HEAD"
+target = "horizon_client_render::hud::HudAtlas::slots"
+helper = "atlas_helper.rs"
+bindings = [
+    { name = "images", ty = "&mut Vec<(String, u32, u32, Vec<u8>)>", value = "&mut *images" },
+]
+
+[[injection]]
+id = "guard-player-model"
+kind = "HEAD"
+target = "horizon_client::mobs::data::MobData::load"
+helper = "model_helper.rs"
+bindings = [
+    { name = "root", ty = "&std::path::Path", value = "root" },
+]
+
+[[injection]]
+id = "guard-body"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::mobs::render::body"
+helper = "body_helper.rs"
+bindings = [
+    { name = "m", ty = "&crate::mobs::Mob", value = "m" },
+]
+
+[[injection]]
+id = "guard-layers"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::mobs::render::layers"
+helper = "layers_helper.rs"
+bindings = [
+    { name = "m", ty = "&crate::mobs::Mob", value = "m" },
+    { name = "age", ty = "f32", value = "age" },
+]
+
+[[injection]]
+id = "mod-entry"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_mods"
+helper = "list_helper.rs"
+bindings = [
+    { name = "mods", ty = "&mut Vec<crate::game::native_hooks::NativeMod>", value = "&mut *mods" },
+]
+
+[[injection]]
+id = "guard-tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_level_tick_post"
+helper = "guard_helper.rs"
+bindings = [
+    { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+    { name = "dimension", ty = "&str", value = "dimension" },
+]
+
+[[injection]]
+id = "guard-render"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_frame"
+helper = "render_helper.rs"
+bindings = [
+    { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+    { name = "elapsed", ty = "std::time::Duration", value = "elapsed" },
+]
+
+[[injection]]
+id = "guard-arm-poses"
+kind = "RETURN"
+target = "horizon_client::mobs::villager::anim"
+helper = "arms_helper.rs"
+bindings = [
+    { name = "m", ty = "&crate::mobs::Mob", value = "m" },
+    { name = "s", ty = "&crate::mobs::anim::State", value = "s" },
+    { name = "p", ty = "&mut crate::mobs::anim::Poses", value = "&mut *p" },
+    { name = "value", ty = "()", value = "$value" },
+]
+
+[[injection]]
+id = "guard-held-items"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::mobs::render::held_item_transform"
+helper = "held_helper.rs"
+bindings = [
+    { name = "m", ty = "&crate::mobs::Mob", value = "m" },
+    { name = "alpha", ty = "f32", value = "alpha" },
+    { name = "camera", ty = "glam::DVec3", value = "camera" },
+    { name = "data", ty = "&crate::mobs::MobData", value = "data" },
+    { name = "left", ty = "bool", value = "left" },
+]
+
+[[injection]]
+id = "guard-item-stacks"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::game::mob_blocks::Game<'_>::held_item_geometry"
+helper = "items_helper.rs"
+bindings = [
+    { name = "game", ty = "&crate::game::Game<'_>", value = "self" },
+    { name = "mob", ty = "&horizon_client::mobs::Mob", value = "mob" },
+    { name = "camera", ty = "glam::DVec3", value = "camera" },
+    { name = "alpha", ty = "f64", value = "alpha" },
+    { name = "light", ty = "u32", value = "light" },
+    { name = "lit", ty = "bool", value = "lit" },
+    { name = "out", ty = "&mut Vec<horizon_client::mesher::Vertex>", value = "&mut *out" },
+]
+
+[[injection]]
+id = "guard-combat-priority"
+kind = "HEAD"
+cancellable = true
+target = "horizon_client::mobs::villager_brain::tick"
+helper = "brain_helper.rs"
+bindings = [
+    { name = "m", ty = "&crate::mobs::Mob", value = "&*m" },
+    { name = "w", ty = "&crate::mobs::MobWorld<'_>", value = "w" },
+]
+
+[[injection]]
+id = "guard-equipment-sync"
+kind = "HEAD"
+target = "horizon_client::mobs::villager_brain::sync"
+helper = "equipment_helper.rs"
+bindings = [
+    { name = "m", ty = "&mut crate::mobs::Mob", value = "&mut *m" },
+]
