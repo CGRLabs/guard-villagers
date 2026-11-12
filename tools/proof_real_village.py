@@ -118,9 +118,17 @@ def main():
     ap.add_argument("--ctl", default=str(INSTALL / "horizon-ctl.exe"))
     ap.add_argument("--resources", default=str(INSTALL / ".local" / "horizon-client" / "26.3"))
     ap.add_argument("--seconds", type=int, default=90)
+    ap.add_argument("--seed", default=SEED, help="world seed, so other villages are hit")
+    ap.add_argument("--tag", default="", help="suffix for this run's reports and shots")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     game = str(Path(args.game).resolve())
+    tag = args.tag.strip()
+    # Each seed reads its own screenshots, log and report, and its own world:
+    # the seed lives in the region's level.dat, so a saved world would answer
+    # with the village it was made with, not the one being asked for.
+    suffix = f"-{tag}" if tag else ""
+    world = f"GuardRealV06{suffix}"
 
     env = dict(os.environ)
     home = Path(tempfile.mkdtemp(prefix="guard-real-home-"))
@@ -130,8 +138,9 @@ def main():
         env[key] = tempfile.mkdtemp(prefix="guard-real-")
     env["HORIZON_NO_AUDIO"] = "1"
     env["HORIZON_LAUNCHER_NO_SELF_UPDATE"] = "1"
-    log = (OUT / "real-v06.log").open("w", encoding="utf-8")
-    report = {"game": game, "seed": SEED, "scratch_home": str(home)}
+    log = (OUT / f"real-v06{suffix}.log").open("w", encoding="utf-8")
+    report = {"game": game, "seed": args.seed, "world": world,
+              "scratch_home": str(home)}
 
     def say(msg):
         print(msg, flush=True)
@@ -161,7 +170,32 @@ def main():
         return value
 
     def wait(ticks):
-        ctl("wait", str(ticks), timeout=max(30, ticks // 20 + 20))
+        for _ in range(4):
+            try:
+                ctl("wait", str(ticks), timeout=max(30, ticks // 20 + 20))
+                return
+            except RuntimeError as exc:
+                if "not advancing" not in str(exc):
+                    raise
+                # A person at the window pauses the game, and a paused world
+                # stops ticking while the client still answers commands.
+                report["pauses"] = report.get("pauses", 0) + 1
+                say(f"the world is paused, taking it back: {exc}")
+                if not playing():
+                    raise RuntimeError(f"the world stayed paused: {exc}")
+
+    def playing():
+        for _ in range(6):
+            try:
+                if ctl("state").get("screen") == "playing":
+                    return True
+                ctl("close")
+                ctl("resume")
+            except Exception as exc:
+                say(f"resume: {exc}")
+                return False
+            time.sleep(1)
+        return False
 
     def mobs():
         # The mod counts every villager the server has loaded, and the mob list
@@ -184,26 +218,20 @@ def main():
         elif place is not None:
             ctl("look-at", str(place[0]), str(place[1]), str(place[2]))
         wait(8)
-        path = OUT / f"real-v06-{name}.png"
+        path = OUT / f"real-v06{suffix}-{name}.png"
         ctl("screenshot", str(path))
         say(f"screenshot {name}: {path}")
         return path
 
     try:
         say(f"scratch home: {home}")
-        say("launching VISIBLE window on normal worldgen...")
-        ctl("launch", "--game", game, "--world", "GuardRealV06", "--seed", SEED,
+        say(f"launching VISIBLE window on normal worldgen, seed {args.seed}...")
+        ctl("launch", "--game", game, "--world", world, "--seed", args.seed,
             "--creative", "--wait", "--render-distance", "8", "--resources",
             args.resources, timeout=420)
         ctl("wait-ready", "180", timeout=210)
         ctl("options-set", "pauseOnLostFocus", "false")
-        for _ in range(6):
-            if ctl("state").get("screen") == "playing":
-                break
-            ctl("close")
-            ctl("resume")
-            wait(5)
-        assert ctl("state").get("screen") == "playing", "game did not enter playing state"
+        assert playing(), "game did not enter playing state"
         ctl("options-set", "tutorialStep", "none")
         ctl("key", "f1", "tap")
         command("time set day")
@@ -307,7 +335,7 @@ def main():
 
         shot("village", place=(x + 30, here[1], z + 30))
         path = shot("guard", guards_now[0]["id"])
-        report["screenshots"] = [str(OUT / "real-v06-village.png"), str(path)]
+        report["screenshots"] = [str(OUT / f"real-v06{suffix}-village.png"), str(path)]
 
         report["passed"] = True
         say(f"the world's village keeps its {len(farmers)} villagers and gains "
@@ -317,7 +345,7 @@ def main():
         say(f"FAILED: {exc}")
         raise
     finally:
-        (OUT / "real-v06-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        (OUT / f"real-v06{suffix}-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         try:
             ctl("quit", timeout=90)
         except Exception as exc:

@@ -2,3 +2,11 @@ target/
 __pycache__/
 *.pyc
 *.lock
+
+# left in the repo root when a proof run launches the client from here
+.horizon-cache/
+saves/
+options.txt
+horizon-graphics.txt
+horizon-player.txt
+logs/

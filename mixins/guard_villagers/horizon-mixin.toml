@@ -1,6 +1,6 @@
 [mod]
 id = "guard_villagers"
-version = "0.6.0"
+version = "0.7.0"
 priority = 100
 
 # The rendering adapters depend on this revision's model and animation layout.

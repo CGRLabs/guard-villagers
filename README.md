@@ -23,9 +23,19 @@ its eight and gains six guards — fourteen people, not six that forget their jo
 | What they carry | an iron sword and a shield, just an iron sword, or a crossbow (about one in three is the archer) |
 | What they fight | the hostile mobs that come near: zombies, husks, skeletons, spiders, creepers, vindicators and the rest |
 | Where they stand | beside their village's own villagers, by the beds, the bell and the job sites |
+| How they answer | hit one and the whole of its village comes for you — every guard of that village, nobody else's |
+| How fast they come | running: on the same flat ground, the quickest guard closed on the player at three times the pace of a provoked monster closing on it |
+| What they walk past | a villager being hit, and a fight in the next village — until one of them is hit |
 | When they stop | they go back to standing their post once the thing they were fighting is gone |
 
 Nothing to bind, nothing to configure. **Options > Mods** has one row that says it is installed.
+
+The answering is what makes a village feel like a village rather than a crowd of solos. Crossbow guards
+walk the same ground the sword guards walk instead of holding the hill, a stray bolt from one of them does
+not start a fight inside the village, and the call stops at its own people: two villages 45 blocks apart,
+strike the near one and only the near one comes. Hit back at a guard that was beating you and the ones
+that were standing and watching are suddenly in it too — that is the whole rule, and it is the same rule
+that keeps an unprovoked villager, a golem, or your own argument with the far village out of it.
 
 ## Play it
 
@@ -42,11 +52,11 @@ Native mods are unsandboxed code that runs with your rights, and this one is not
 registry — the launcher will say so in red before it builds. The bundle is fifteen small `.rs` files under
 `mixins/guard_villagers/`; read them first.
 
-**Without the launcher:** [release v0.6.0](https://github.com/CGRLabs/guard-villagers/releases/tag/v0.6.0)
-carries `horizon-client-guard-0.6.0-windows-x64.zip` (37 033 717 bytes, SHA-256
-`4760d701ff17546ccbb4b3dc9cb74ebcf84125f6e06d97134b9b4772f349ea54`) — a Horizon client with Guard
-Villagers already compiled in, unzipping to `horizon-client-guard.exe` (103 202 816 bytes, SHA-256
-`cb36dc878b6c31da483b5a1785c11f0b9a3644b24ff0e429de2b67a3b00765f2`). Drop it into a prepared Horizon 26.3
+**Without the launcher:** [release v0.7.0](https://github.com/CGRLabs/guard-villagers/releases/tag/v0.7.0)
+carries `horizon-client-guard-0.7.0-windows-x64.zip` (37 235 888 bytes, SHA-256
+`710d1dc5d86dfc842edb00ff9266d707f08f7a6be341006a65d9592fc54b5f92`) — a Horizon client with Guard
+Villagers already compiled in, unzipping to `horizon-client-guard.exe` (103 181 824 bytes, SHA-256
+`da5793fb0f8a4e6fde04b16a94243ebb0f685c507d54047d2d226fbb5c73102e`). Drop it into a prepared Horizon 26.3
 folder (one where `horizon-prepare` has run) and start it in place of `horizon-client`. It is built for
 commit `e14b35ce` (the 2026-11-11 Nightly), so it will not match an older install — for another Nightly,
 use the launcher build above.
@@ -54,6 +64,10 @@ use the launcher build above.
 Either way, to see it fast: find a village (`/locate structure #minecraft:village`), make it night
 (`/time set night`) and stand back. Within about a minute the guards walk up beside the villagers. To
 count them yourself: `/data get entity @e[type=minecraft:villager,limit=1] equipment`.
+
+A village is where its villagers stand, so a farm you built counts, two villages 45 blocks apart keep their
+own guards, and a farmer who settles past a village's width away from everybody else is a village of one —
+and `ceil(1 × 2/3)` is one guard standing beside it.
 
 ## Getting it running
 

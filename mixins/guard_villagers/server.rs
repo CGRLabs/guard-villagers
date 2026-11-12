@@ -7,6 +7,7 @@
 // It lives in the game crate (not the library) because it needs the Game.
 
 use horizon_client::guard_villagers as gv;
+use horizon_client::mobs::finalize::{self, Attr};
 use horizon_client::mobs::goals::{HurtByTarget, MeleeAttack, NearestTarget, Prey};
 use horizon_client::mobs::illager::crossbow_goal;
 use horizon_client::mobs::{Damage, MobEvent, Mob, Species, Who};
@@ -192,16 +193,44 @@ pub fn equip_guard(m: &mut Mob) {
     gv::keep_armed(m);
     // Armour supplies protection without changing the villager's appearance.
     m.attrs.attack_damage = gv::SWING_DAMAGE;
+    // A guard outruns the farmers it stands between and the thing that ran off
+    // after hitting it: a slow guard is a guard that arrives too late. The
+    // base, not the field — an effect that touches movement speed rebuilds
+    // the field from the base, and a guard must not fall back to a farmer's
+    // 0.5 because it was briefly slowed.
+    finalize::set_base(m, Attr::MovementSpeed, gv::GUARD_SPEED);
+    // How far a guard will go over, and how far its news travels: one village.
+    finalize::set_base(m, Attr::FollowRange, gv::VILLAGE_RADIUS);
     // A guard does not wander off and does not despawn.
     m.persistent = true;
     if gv::is_archer(m.id) {
-        m.ai.goals.add(1, crossbow_goal(1.0, 15.0));
+        m.ai.goals.add(1, crossbow_goal(gv::CHASE_SPEED, gv::BOW_RANGE));
     } else {
-        m.ai.goals.add(1, MeleeAttack::new(1.0, true));
+        m.ai.goals.add(1, MeleeAttack::new(gv::CHASE_SPEED, true));
     }
-    m.ai.targets.add(1, HurtByTarget::new());
+    m.ai.targets.add(1, revenge());
     m.ai.targets
         .add(2, NearestTarget::new(Prey::Filter(gv::prey), false).interval(5));
+}
+
+/// A guard turns on whoever struck it, and tells the guards around it.
+///
+/// The telling is `alert`: when a guard starts its revenge, the others of its
+/// species that are near, alive and in no quarrel of their own are given the
+/// same target. `alert_if` keeps that call to the guards, so a farmer that was
+/// hit passes no news — it has none to pass. And because the call happens only
+/// when a guard is the one that was hurt, a guard that is winning on its own
+/// tells nobody: the village joins in when you hit back, not when you watch.
+///
+/// `ignoring` is what keeps the village on your side of the fight: a guard hit
+/// by another guard's bolt takes no grudge, since the attacker is of its own
+/// species. Measured in the world before this, an archer's stray bolt made two
+/// guards forget the player and come for each other.
+fn revenge() -> HurtByTarget {
+    HurtByTarget::new()
+        .alert()
+        .alert_if(gv::is_known_guard_seen)
+        .ignoring(&[Species::Villager])
 }
 
 /// Count the villagers of every village and add the guards it is short of.

@@ -111,7 +111,77 @@ Open questions for the design, not settled yet:
 - do the guards have a profession (armorer?) and a name?
 - do the guards ever leave, or are they permanent additions?
 
-## How it is built (v0.6.0, 2026-11-11)
+## How a village answers a blow (v0.7.0, 2026-11-12)
+
+The brief was behavioural, in the player's own words: hit one guard and they all come; make them chase;
+and a guard beating you in front of neighbours that were not called should bring nothing until you hit
+back. Three mechanisms, all in the server half.
+
+**The call is the revenge goal's `alert`, and only a guard passes it.**
+`HurtByTarget::new().alert().alert_if(gv::is_known_guard_seen).ignoring(&[Species::Villager])`
+(`mixins/guard_villagers/server.rs`). `alert` is upstream's fan-out: when the goal starts, the mobs of the
+same species that are near, alive and in no quarrel of their own are handed the same target
+(`crates/horizon-client/src/mobs/goals.rs:1795-1900`). `alert_if` narrows *who may pass the news*, to a
+mob the mod knows as a guard — so a struck farmer stays silent, and the call lives in the guards and
+nothing else. Nothing spreads from watching, which is the "they hit you in front of the others and nothing
+happens" half: the neighbours are moved by being hit, never by seeing it.
+`ignoring(&[Species::Villager])` then drops the *retaliation* when the attacker is one of our own species,
+so an archer's stray bolt that lands on a colleague starts nothing inside the village — measured before
+this existed, one bolt made two guards forget the player and come at each other. A `Who::Player` attacker
+is not ignored, which is the "if u hit back they join along" half.
+
+**The legs are the attribute base, not the field.** `finalize::set_base(m, Attr::MovementSpeed,
+GUARD_SPEED)` — 0.62 against a villager's 0.5 — with the attack goals running at `CHASE_SPEED` (1.5) over
+it. The base is what an effect that touches movement speed rebuilds the field from; set only the field and
+a guard that was briefly slowed would fall back to a farmer's legs.
+
+**The archers walk the same ground as the sword guards.** `BOW_RANGE = 6.0` is the radius the crossbow goal
+is built with, and `CrossbowAttack` only paths while the target is *beyond* its radius
+(`crates/horizon-client/src/mobs/illager.rs:483-600`). At the 15.0 the goal was built with, an archer 18
+blocks off never covered a single one of those 18 in 80 ticks — it had stopped to shoot — while the sword
+guards were at the player's feet by the first sample. At 6 it comes to bowing distance like everybody else.
+
+**A guard's follow range is the village's width** (`Attr::FollowRange = VILLAGE_RADIUS = 32`), which is both
+how far it will go over and how far its news travels. That is why the proof's bystander village stands 45
+blocks off: out of the call, in sight of the blow.
+
+### The count is a village's, not the world's (found 2026-11-12)
+
+`tools/proof_revenge.py` asserted that the world's own attribute read shows `ceil(2n/3)` armed villagers,
+and the third run of it failed with `{0.5: 10, 0.62: 8}` — a village of ten standing with eight guards.
+`tools/diag_surplus.py` then watched that same village for 800 ticks: it held at exactly seven, armour and
+speed base agreeing sample after sample, with the one villager that has its AI on walking out to 31 blocks
+without leaving its village. Summoning a *lone* villager in the same arena gets itself a guard within
+seconds, which is what the eighth was.
+
+So the surplus was the rule working, not a duplicate: **a group of villagers standing more than a village's
+width from every other one is a village of its own** — the same folding that makes a hand-built farm count —
+and `ceil(1 × 2/3) = 1`. A hermit farmer is guarded. The proof now measures the village (`ceil` of its own
+people, armed and standing within its width) and keeps the world-wide claim in the shape that does hold:
+the speed base follows the armour marker mob for mob, whoever the mob belongs to.
+
+### The proof that passed (2026-11-12)
+
+`tools/proof_revenge.py` — one arena, a village of ten summoned villagers plus its walking one, a second
+identical village 45 blocks down the same ridge, and a provoked spider as the yardstick for "fast". One
+run, `rc=0`, `passed: true`, `relaunches: 0`:
+
+| Check | Result |
+| --- | --- |
+| The village's people | 10 unarmed villagers at 0.5, **7** guards at 0.62 — `ceil(10 × 2/3)`, armour and speed base agreeing |
+| Strike an ordinary villager | 20.0 → 19.0 hp, that farmer's target `None`, **0** guards on the player, **0** villagers on the player, and everyone still targetless afterwards |
+| Strike one guard | 20.0 → 19.58 hp, and **all 7** guards took the player — **0** of the farmers joined |
+| How far they came | every guard closed past bow distance: nearest approaches 0.2 – 4.8 blocks from starting gaps of 4.7 – 22.6 |
+| How fast | quickest closing pace **1.083 blocks/tick** (id 49), against the provoked spider's **0.237** over 4 running samples = **4.57×** a monster's pace |
+| Stray bolts | 0 guards targeting another guard, before and after the chase |
+| Two villages, one blow | A answered with its 6, B stood **27.4 blocks** off and took **nothing** while A chased the player 18 blocks |
+| Bystanders, then hit back | strike one guard of B and **all 6** of B came |
+
+Reports: `target/proof/revenge-v07-report.json`; screenshots `revenge-v07-all-attack.png`,
+`revenge-v07-two-villages.png`. Rust side: 4 tests in `horizon-client-lib` + 4 in `horizon-client`, both
+`cargo_exit: 0`.
+
+## How it is built (v0.6.0, 2026-11-11; structure unchanged in 0.7.0)
 
 Two support modules, because the two halves live in different crates:
 

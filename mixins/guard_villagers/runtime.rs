@@ -17,8 +17,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 use crate::mobs::{Mob, MobType, Part, Species};
 
 pub const ID: &str = "guard_villagers";
-pub const VERSION: &str = "0.6.0";
-pub const DESCRIPTION: &str = "Every village gains extra guards: armed villagers that fight back, added on top of the farmers, smiths and traders it already had.";
+pub const VERSION: &str = "0.7.0";
+pub const DESCRIPTION: &str = "Every village gains extra guards: armed villagers added on top of the farmers, smiths and traders it already had. Strike one and the others come running.";
 
 /// Two guards for every three villagers a village has: four per six, six per
 /// eight. The guards are added on top, never taken from the village.
@@ -34,6 +34,23 @@ pub const BREED_RADIUS: f64 = 5.0;
 pub const MELEE_REACH: f64 = 2.5;
 pub const SWING_COOLDOWN: u32 = 20;
 pub const SWING_DAMAGE: f32 = 3.0;
+
+/// A guard's own speed, against a farmer's 0.5 (`game/mods.rs` gives the
+/// villager `minecraft:movement_speed: 0.5`): a guard that walks like a
+/// farmer arrives after the farmer it was meant to protect is already hurt.
+pub const GUARD_SPEED: f64 = 0.62;
+
+/// How much faster still a guard moves while it is going for what struck it.
+/// The attack goals multiply the mob's speed by this while they path.
+pub const CHASE_SPEED: f64 = 1.5;
+
+/// How close an archer guard comes before it loose a bolt. The crossbow goal
+/// only paths while the target is beyond this, so a wide range leaves the
+/// archers standing and shooting from the far side of the village while the
+/// sword guards are already on you: measured in the world, an archer at 15
+/// blocks never covered a single one of the 18 between it and the player in
+/// 80 ticks. At 6 it runs the same ground the sword guards run.
+pub const BOW_RANGE: f64 = 6.0;
 pub const SWORD: &str = "minecraft:iron_sword";
 pub const SHIELD: &str = "minecraft:shield";
 pub const CROSSBOW: &str = "minecraft:crossbow";
@@ -165,6 +182,12 @@ pub fn keep_armed(m: &mut Mob) {
 /// the list; the client half of the same world reads it.
 pub fn is_known_guard(id: u32) -> bool {
     GUARDS.lock().unwrap().contains_key(&id)
+}
+
+/// The same, read from what a mob can see: guards only, so the news a hurt
+/// guard passes never reaches a farmer.
+pub fn is_known_guard_seen(s: &crate::mobs::Seen) -> bool {
+    is_known_guard(s.id)
 }
 
 /// The villagers of a village, and the guards among them.
