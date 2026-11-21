@@ -24,11 +24,16 @@ thin adapter to Horizon handles, goals, equipment and item keys.
 
 ```sh
 cd hmod
-cargo test
-cargo horizon-mod check
+RUSTUP_TOOLCHAIN=1.99.1 cargo test
 cargo horizon-mod build --wasm
+RUSTUP_TOOLCHAIN=1.99.1 cargo horizon-mod check
 cargo horizon-mod check target/horizon-mod/guard_villagers.hmod --json
 ```
+
+The repository root pins an older toolchain for the legacy `.hnmod` tree, so set
+`RUSTUP_TOOLCHAIN=1.99.1` when running plain Cargo or the source check from `hmod/`.
+`cargo horizon-mod build --wasm` selects the pinned toolchain itself and also generates
+`mod.wasm`, which is a build artifact and is not committed.
 
 The checked 0.8.0 package has SHA-256
 `afc6c5aa0543c1f965fcf1d075fce388af47774c6b04cf86fd7229e9121202b2`.
