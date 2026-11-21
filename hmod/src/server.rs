@@ -52,25 +52,13 @@ struct Seen {
     guard: bool,
     baby: bool,
     alive: bool,
-    /// The village point remembered on the entity as tags `gv:x`, `gv:y`, `gv:z`.
+    /// The village point remembered on the entity as tags `gv:p:`, `gv:q:`, `gv:r:`.
     remembered: Option<[i32; 3]>,
 }
 
 fn remembered_key(host: &dyn mod_api::Host, e: EntityRef) -> Option<[i32; 3]> {
     let tags = e.tags(host)?;
-    let mut x = None;
-    let mut y = None;
-    let mut z = None;
-    for t in tags {
-        if let Some(v) = t.strip_prefix("gv:p:") {
-            x = v.parse::<i32>().ok();
-        } else if let Some(v) = t.strip_prefix("gv:q:") {
-            y = v.parse::<i32>().ok();
-        } else if let Some(v) = t.strip_prefix("gv:r:") {
-            z = v.parse::<i32>().ok();
-        }
-    }
-    Some([x?, y?, z?])
+    rules::remembered_from_tags(tags.iter().map(String::as_str))
 }
 
 /// Take one snapshot of the level's living population through handles.
@@ -144,24 +132,50 @@ fn arm(host: &mut dyn mod_api::ServerHost, items: &Items, s: &Seen) {
     );
 
     let Some(mob): Option<MobRef> = host.mob(s.entity) else { return };
-    // Both goals are idempotent by kind id: adding again replaces the old one.
-    let _ = mob.add_goal(host, 1, &GoalSpec::MeleeAttack {
-        speed: rules::CHASE_SPEED,
-        follow_unseen: true,
-    });
-    let _ = mob.add_target_goal(host, 1, &GoalSpec::HurtByTarget { alert: true });
-    let _ = mob.add_target_goal(host, 2, &GoalSpec::NearestTarget {
-        prey: MobFilter::Species(hostile_species()),
-        must_see: false,
-        must_reach: false,
-        interval: 5,
-    });
+    // `add_goal` appends to the selector; it does not replace a goal of the
+    // same kind. Adding these every tick would give a loaded village two more
+    // goal objects per guard per tick, without bound, so read the selectors
+    // back and install only what is missing. A chunk reload rebuilds the
+    // selectors, so a reloaded guard reads back missing and is armed again.
+    let Some(goals) = mob.goals(host) else { return };
+    let Some(targets) = mob.target_goals(host) else { return };
+    let goal_ids: Vec<&str> = goals.iter().map(|g| g.id).collect();
+    let target_ids: Vec<&str> = targets.iter().map(|g| g.id).collect();
+    let missing = rules::missing_goals(&goal_ids, &target_ids);
+
+    if missing.melee {
+        let _ = mob.add_goal(host, 1, &GoalSpec::MeleeAttack {
+            speed: rules::CHASE_SPEED,
+            follow_unseen: true,
+        });
+    }
+    if missing.hurt_by_target {
+        let _ = mob.add_target_goal(host, 1, &GoalSpec::HurtByTarget { alert: true });
+    }
+    if missing.nearest_target {
+        let _ = mob.add_target_goal(host, 2, &GoalSpec::NearestTarget {
+            prey: MobFilter::Species(hostile_species()),
+            must_see: false,
+            must_reach: false,
+            interval: 5,
+        });
+    }
 }
 
 fn remember_village(host: &mut dyn mod_api::ServerHost, e: EntityRef, key: [i32; 3]) {
-    for (prefix, value) in [("gv:p:", key[0]), ("gv:q:", key[1]), ("gv:r:", key[2])] {
-        let old = format!("{prefix}{}", i32::MIN);
-        let _ = e.remove_tag(host, &old);
+    // Drop every axis tag the guard already carries, not one sentinel value:
+    // a guard that walks between villages would otherwise keep the old
+    // coordinates beside the new ones and read back as a mixed key.
+    let stale: Vec<String> = e
+        .tags(host)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|t| rules::is_key_tag(t))
+        .collect();
+    for t in stale {
+        let _ = e.remove_tag(host, &t);
+    }
+    for (prefix, value) in rules::KEY_PREFIXES.into_iter().zip(key) {
         let _ = e.add_tag(host, &format!("{prefix}{value}"));
     }
 }

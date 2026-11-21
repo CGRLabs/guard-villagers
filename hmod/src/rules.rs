@@ -41,6 +41,62 @@ pub const SHIELD_TAG: &str = "guard_villagers:shield";
 pub const ARCHER_TAG: &str = "guard_villagers:archer";
 pub const GUARD_TAG: &str = "guard_villagers:guard";
 
+/// The tag prefix each axis of a remembered village point is stored under.
+pub const KEY_PREFIXES: [&str; 3] = ["gv:p:", "gv:q:", "gv:r:"];
+
+/// Whether a tag holds one axis of a remembered village point.
+pub fn is_key_tag(tag: &str) -> bool {
+    KEY_PREFIXES.iter().any(|prefix| tag.starts_with(prefix))
+}
+
+/// The village point a guard remembers, read back from its tags.
+///
+/// One value per axis. None when an axis is absent, unparsable, or carries
+/// two different values: a mixed key would point the guard at a village it
+/// was never in, so forgetting the key and letting the guard be regrouped by
+/// proximity is the safer answer.
+pub fn remembered_from_tags<'a>(tags: impl IntoIterator<Item = &'a str>) -> Option<[i32; 3]> {
+    let mut axes: [Option<i32>; 3] = [None; 3];
+    for tag in tags {
+        let Some(axis) = KEY_PREFIXES.iter().position(|prefix| tag.starts_with(prefix)) else {
+            continue;
+        };
+        let value = tag[KEY_PREFIXES[axis].len()..].parse::<i32>().ok()?;
+        if axes[axis].is_some_and(|seen| seen != value) {
+            return None;
+        }
+        axes[axis] = Some(value);
+    }
+    Some([axes[0]?, axes[1]?, axes[2]?])
+}
+
+/// The goal kinds a guard needs: one on the goal selector, two target goals.
+pub const MELEE_GOAL: &str = "melee_attack";
+pub const HURT_BY_TARGET_GOAL: &str = "hurt_by_target";
+pub const NEAREST_TARGET_GOAL: &str = "nearest_target";
+
+/// Which guard goals a mob's selectors are still missing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MissingGoals {
+    pub melee: bool,
+    pub hurt_by_target: bool,
+    pub nearest_target: bool,
+}
+
+/// Which guard goals to install, given the kinds already in each selector.
+///
+/// The host appends on every `add_goal` (`GoalSelector.addGoal`), so re-adding
+/// each level tick would grow both selectors without bound. Reading the kinds
+/// back makes arming idempotent: a guard that already has them gets nothing,
+/// and a guard whose chunk reloaded (fresh selectors) gets them once more.
+pub fn missing_goals(goals: &[&str], targets: &[&str]) -> MissingGoals {
+    MissingGoals {
+        melee: !goals.contains(&MELEE_GOAL),
+        hurt_by_target: !targets.contains(&HURT_BY_TARGET_GOAL),
+        nearest_target: !targets.contains(&NEAREST_TARGET_GOAL),
+    }
+}
+
 /// Guards a village of `regular` villagers gets: `ceil(2n/3)`.
 pub fn guards_for(regular: usize) -> usize {
     (regular * GUARDS_PER_NUM).div_ceil(GUARDS_PER_DEN)
@@ -288,6 +344,97 @@ mod tests {
 
     fn v(id: u32, key: Option<[i32; 3]>, pos: [f64; 3]) -> Villager {
         Villager { id, key, pos }
+    }
+
+    /// What one `arm` pass does to a mob's two selectors: append the goals the
+    /// kinds read back missing, as `server::arm` does through the host.
+    fn arm_once(goals: &mut Vec<&'static str>, targets: &mut Vec<&'static str>) {
+        let missing = missing_goals(goals, targets);
+        if missing.melee {
+            goals.push(MELEE_GOAL);
+        }
+        if missing.hurt_by_target {
+            targets.push(HURT_BY_TARGET_GOAL);
+        }
+        if missing.nearest_target {
+            targets.push(NEAREST_TARGET_GOAL);
+        }
+    }
+
+    #[test]
+    fn repeated_arming_leaves_goal_counts_stable() {
+        let mut goals: Vec<&'static str> = Vec::new();
+        let mut targets: Vec<&'static str> = Vec::new();
+
+        arm_once(&mut goals, &mut targets);
+        assert_eq!((goals.len(), targets.len()), (1, 2));
+        assert_eq!(missing_goals(&goals, &targets), MissingGoals::default());
+
+        // The tick re-arms every live guard every tick: a thousand ticks must
+        // not add a single goal. This is the regression the review asked for.
+        for _ in 0..1000 {
+            arm_once(&mut goals, &mut targets);
+        }
+        assert_eq!((goals.len(), targets.len()), (1, 2));
+    }
+
+    #[test]
+    fn a_reloaded_chunk_gets_its_goals_back() {
+        // A chunk reload rebuilds both selectors empty, so arming adds them
+        // once more rather than treating the guard as already armed.
+        let mut goals: Vec<&'static str> = Vec::new();
+        let mut targets: Vec<&'static str> = Vec::new();
+        assert_eq!(
+            missing_goals(&goals, &targets),
+            MissingGoals { melee: true, hurt_by_target: true, nearest_target: true }
+        );
+        arm_once(&mut goals, &mut targets);
+        arm_once(&mut goals, &mut targets);
+        assert_eq!((goals.len(), targets.len()), (1, 2));
+    }
+
+    #[test]
+    fn a_half_armed_guard_only_gains_what_it_lacks() {
+        let mut goals = vec![MELEE_GOAL];
+        let mut targets = vec![NEAREST_TARGET_GOAL];
+        arm_once(&mut goals, &mut targets);
+        assert_eq!(goals, vec![MELEE_GOAL]);
+        assert_eq!(targets, vec![NEAREST_TARGET_GOAL, HURT_BY_TARGET_GOAL]);
+    }
+
+    #[test]
+    fn a_remembered_key_round_trips_through_tags() {
+        let tags = ["guard_villagers:guard", "gv:p:104", "gv:q:64", "gv:r:100"];
+        assert_eq!(remembered_from_tags(tags), Some([104, 64, 100]));
+    }
+
+    #[test]
+    fn a_mixed_key_is_forgotten_rather_than_guessed() {
+        // The old coordinate tags were never removed, so both villages were
+        // readable at once. That is not a key; the guard is regrouped instead.
+        let tags = ["gv:p:104", "gv:q:64", "gv:r:100", "gv:p:900"];
+        assert_eq!(remembered_from_tags(tags), None);
+        // A repeated identical value is still one key.
+        let tags = ["gv:p:104", "gv:q:64", "gv:r:100", "gv:p:104"];
+        assert_eq!(remembered_from_tags(tags), Some([104, 64, 100]));
+    }
+
+    #[test]
+    fn an_incomplete_or_unparsable_key_is_forgotten() {
+        assert_eq!(remembered_from_tags(["gv:p:104", "gv:q:64"]), None);
+        assert_eq!(remembered_from_tags(["gv:p:104", "gv:q:x", "gv:r:100"]), None);
+        assert_eq!(remembered_from_tags(Vec::<&str>::new()), None);
+        // Tags that are not key tags are ignored, not fatal.
+        assert_eq!(remembered_from_tags(["guard_villagers:guard", "gv:heir"]), None);
+    }
+
+    #[test]
+    fn only_the_three_axis_tags_are_key_tags() {
+        assert!(is_key_tag("gv:p:0"));
+        assert!(is_key_tag("gv:q:-2147483648"));
+        assert!(is_key_tag("gv:r:12"));
+        assert!(!is_key_tag("gv:heir"));
+        assert!(!is_key_tag("guard_villagers:guard"));
     }
 
     #[test]
