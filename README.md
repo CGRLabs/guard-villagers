@@ -1,5 +1,9 @@
 # Guard Villagers
 
+![Guard Villagers icon](icons/icon.png)
+
+> **Current status (2026-11-21):** this directory is the retired `.hnmod` prototype. The shipping port is **Guard Villagers 0.8.0**, a sandboxed wasm `.hmod` in `prototypes/guard-villagers-wasm/` and the `hmod/` branch of `CGRLabs/guard-villagers`; registry PR #1511 merged and the mod is live. `.hnmod` stopped loading on 2026-11-18. See root `MODS.md` and `PROJECT-STATUS.md`.
+
 **A village that can defend itself — without stopping being a village.**
 
 Every village the game generates keeps its own people. The farmer farms, the librarian shelves books,
@@ -39,35 +43,18 @@ that keeps an unprovoked villager, a golem, or your own argument with the far vi
 
 ## Play it
 
-**Through the Horizon launcher** (the usual way for a native mod): Mods → **Add from GitHub** →
-`https://github.com/CGRLabs/guard-villagers`, then Settings → Game → **Native mods (experimental)** →
-**Build**. The launcher downloads its own Rust and compiles the mod into a game of your own; the first
-build takes 20 to 30 minutes, later ones are incremental. Its `.hnmod` asks for hook points v37, so it
-builds on any Horizon that has them rather than one exact commit. Most of what it touches are Horizon's
-own private functions, though — villager rendering, the held-item draw, the villager brain, the level
-tick — so when Horizon moves one of those the bundle needs the new path, and we publish it as a new
-version.
+**Current:** install `guard_villagers-0.8.0.hmod` from the release linked in root `MODS.md`, put it in `horizon-mods/`, and enable it in Options → Mods. It is a sandboxed wasm package — no launcher build, no patched client, no unsandboxed native code. Registry PR #1511 merged on 2026-11-21 and the registry serves 0.8.0.
 
-Native mods are unsandboxed code that runs with your rights, and this one is not reviewed by the Horizon
-registry — the launcher will say so in red before it builds. The bundle is fifteen small `.rs` files under
-`mixins/guard_villagers/`; read them first.
+**Historical:** the launcher bundle and `horizon-client-guard-*.exe` described in earlier revisions used the retired `.hnmod` pipeline and are no longer a valid delivery route.
 
-**Without the launcher:** [release v0.7.0](https://github.com/CGRLabs/guard-villagers/releases/tag/v0.7.0)
-carries `horizon-client-guard-0.7.0-windows-x64.zip` (37 235 888 bytes, SHA-256
-`710d1dc5d86dfc842edb00ff9266d707f08f7a6be341006a65d9592fc54b5f92`) — a Horizon client with Guard
-Villagers already compiled in, unzipping to `horizon-client-guard.exe` (103 181 824 bytes, SHA-256
-`da5793fb0f8a4e6fde04b16a94243ebb0f685c507d54047d2d226fbb5c73102e`). Drop it into a prepared Horizon 26.3
-folder (one where `horizon-prepare` has run) and start it in place of `horizon-client`. It is built for
-commit `e14b35ce` (the 2026-11-11 Nightly), so it will not match an older install — for another Nightly,
-use the launcher build above.
-
-Either way, to see it fast: find a village (`/locate structure #minecraft:village`), make it night
+To see it fast: find a village (`/locate structure #minecraft:village`), make it night
 (`/time set night`) and stand back. Within about a minute the guards walk up beside the villagers. To
 count them yourself: `/data get entity @e[type=minecraft:villager,limit=1] equipment`.
 
 A village is where its villagers stand, so a farm you built counts, two villages 45 blocks apart keep their
 own guards, and a farmer who settles past a village's width away from everybody else is a village of one —
-and `ceil(1 × 2/3)` is one guard standing beside it.
+and `ceil(1 × 2/3)` is one guard standing beside it. In a village the world generated, the same number holds
+and it holds steady: 5 seeds, 6 to 13 villagers, every one of them exactly `ceil(2n/3)` armed (0.7.1).
 
 ## Getting it running
 
@@ -84,6 +71,8 @@ of the mod that makes them has to run where the world is simulated:
   does not change what a villager trades.
 
 ## For developers
+
+> Everything below documents the retired `.hnmod` implementation and is kept for provenance. The current wasm port lives in `prototypes/guard-villagers-wasm/`; see `knowledge/MODDING-KNOWLEDGE.md` for the current format.
 
 ### The two halves
 
