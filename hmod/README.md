@@ -35,5 +35,3 @@ The repository root pins an older toolchain for the legacy `.hnmod` tree, so set
 `cargo horizon-mod build --wasm` selects the pinned toolchain itself and also generates
 `mod.wasm`, which is a build artifact and is not committed.
 
-The checked 0.8.0 package has SHA-256
-`afc6c5aa0543c1f965fcf1d075fce388af47774c6b04cf86fd7229e9121202b2`.
