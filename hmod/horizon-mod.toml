@@ -1,0 +1,12 @@
+id = "guard_villagers"
+name = "Guard Villagers"
+version = "0.8.0"
+description = "Every village gains extra guards: armed villagers added on top of the farmers, smiths and traders it already had. Strike one and the others come running."
+authors = ["CGRLabs"]
+api = "0.2"
+side = "both"
+capabilities = ["registries"]
+
+[wasm]
+sha512 = "63aefe4ee2f4566fcd3696eea2caa445eacc5db36d63e12ec75d44f11878f0dc7897c114d094c8219ff49b16c3e47afb1694e4dbc22e5dba0fe9c7d535a893b7"
+toolchain = "1.99.1 58cf8f9c35b355199727627d07ae34a4e2846d67"
