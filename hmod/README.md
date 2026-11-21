@@ -31,4 +31,4 @@ cargo horizon-mod check target/horizon-mod/guard_villagers.hmod --json
 ```
 
 The checked 0.8.0 package has SHA-256
-`d6c9c891e7da3d7cb1bbf758d9ea274d3459a2d3a0f7f02ebb2e9db3bcc0682a`.
+`afc6c5aa0543c1f965fcf1d075fce388af47774c6b04cf86fd7229e9121202b2`.
